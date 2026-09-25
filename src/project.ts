@@ -24,6 +24,9 @@ export interface Analysis {
   warnings: string[];
 }
 
+/** Bump whenever a change to the analysis changes fingerprints of unchanged code. */
+export const FINGERPRINT_VERSION = 1;
+
 const CODE_EXT = /\.(c?js|json)$/;
 const FS_MODULES = new Set(['fs', 'fs/promises', 'node:fs', 'node:fs/promises']);
 const GLOBAL = 'global';

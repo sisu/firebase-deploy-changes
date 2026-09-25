@@ -38,7 +38,9 @@ export class FsSource implements Source {
   blobId(rel: string) {
     let id = this.ids.get(rel);
     if (id === undefined && this.list.includes(rel)) {
-      id = createHash('sha1').update(readFileSync(path.join(this.dir, rel))).digest('hex');
+      // Git's blob id, so identical files hash the same here and in GitSource.
+      const content = readFileSync(path.join(this.dir, rel));
+      id = createHash('sha1').update(`blob ${content.length}\0`).update(content).digest('hex');
       this.ids.set(rel, id);
     }
     return id;
