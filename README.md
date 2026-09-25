@@ -39,6 +39,10 @@ fdc record --all --rev <deployed-commit> --dir functions
 # See what would be deployed. Exit code 1 means something needs deploying.
 fdc changed --dir functions
 
+# The same, for a commit instead of the working tree, as JSON for scripts:
+# {"changed": [...], "added": [...], "removed": [...]}
+fdc changed --dir functions --rev origin/main --json
+
 # Deploy changed functions and record the ones that succeed.
 fdc deploy --dir functions
 fdc deploy --dir functions --dry-run          # print the firebase command only
@@ -52,7 +56,7 @@ fdc record myFunction otherFunction --dir functions
 | Command | What it does |
 | --- | --- |
 | `deploy [--all] [--dry-run] [-- <firebase args>]` | Deploy changed functions and record the ones that succeed |
-| `changed` | List changed, new and removed functions |
+| `changed [--rev R] [--json]` | List changed, new and removed functions |
 | `record [<names>...] [--all] [--rev R]` | Mark functions as deployed without deploying |
 | `fingerprint [--rev R]` | Print every function's fingerprint as JSON |
 | `diff <base-rev> [<head-rev>] [--explain]` | Functions whose code differs between two revisions; `--explain` shows why |

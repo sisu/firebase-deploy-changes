@@ -3,7 +3,7 @@
 //
 //   fdc deploy [--all] [--dry-run] [-- <firebase args>]
 //                                        deploy functions whose code changed since recorded, record the ones that succeed
-//   fdc changed                          list functions whose code changed since recorded (exit 1 if any)
+//   fdc changed [--rev R] [--json]       list functions whose code changed since recorded (exit 1 if any)
 //   fdc record [<names>...] [--all] [--rev R]
 //                                        mark functions as deployed; `record --all --rev <sha>` bootstraps the state
 //   fdc fingerprint [--rev R]            print {function: fingerprint} as JSON
@@ -36,6 +36,7 @@ const { values: opts, positionals } = parseArgs({
     'dry-run': { type: 'boolean', default: false },
     firebase: { type: 'string', default: 'firebase' },
     explain: { type: 'boolean', default: false },
+    json: { type: 'boolean', default: false },
     n: { type: 'string', short: 'n', default: '100' },
   },
 });
@@ -182,11 +183,12 @@ async function main(): Promise<number> {
       return code !== 0 ? code : failed.length || unconfirmed.length ? 1 : 0;
     }
     case 'changed': {
-      const a = analyze(undefined);
+      const a = analyze(opts.rev);
       const p = plan(a.fingerprints, loadState(statePath));
-      printPlan(p, a.fingerprints.size);
       const targets = [...p.changed, ...p.added];
-      if (targets.length) console.log(`\nfirebase deploy --only ${targets.map(target).join(',')}`);
+      if (opts.json) console.log(JSON.stringify(p));
+      else printPlan(p, a.fingerprints.size);
+      if (targets.length && !opts.json) console.log(`\nfirebase deploy --only ${targets.map(target).join(',')}`);
       return targets.length ? 1 : 0;
     }
     case 'record': {

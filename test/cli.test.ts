@@ -128,3 +128,19 @@ test('state recorded from a git revision matches an identical working tree', () 
   const r = p.fdc(['changed']);
   assert.equal(r.code, 0, r.out);
 });
+
+test('changed --rev --json reports a commit, not the working tree', () => {
+  const p = project();
+  const git = (...args: string[]) => spawnSync('git', args, { cwd: p.root, encoding: 'utf8' });
+  git('init', '-q');
+  git('add', '-A');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'init');
+  assert.equal(p.fdc(['record', '--all', '--rev', 'HEAD']).code, 0);
+  p.edit(INDEX.replace("'b'", "'B'").replace("exports.c = () => 'c';\n", "exports.d = () => 'd';\n"));
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'edit');
+  p.edit(INDEX.replace("'a'", "'A'"));
+
+  const r = p.fdc(['changed', '--rev', 'HEAD', '--json']);
+  assert.equal(r.code, 1, r.out);
+  assert.deepEqual(JSON.parse(r.out), { changed: ['b'], added: ['d'], removed: ['c'] });
+});
