@@ -14,7 +14,7 @@ deploys only those. See README.md for usage and design.
 ## Commands
 
 ```sh
-npm test            # node --test test/
+npm test            # node --test "test/*.test.ts"
 npm run typecheck   # tsc, type checking only
 node src/cli.ts <command> --dir <functions dir>
 ```
