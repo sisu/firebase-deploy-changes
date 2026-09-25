@@ -1,0 +1,27 @@
+{
+  "name": "firebase-deploy-changes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fdc": "src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@babel/generator": "^8.0.6",
+    "@babel/parser": "^8.0.6",
+    "@babel/traverse": "^8.0.6",
+    "@babel/types": "^8.0.6",
+    "picomatch": "^4.0.7"
+  },
+  "devDependencies": {
+    "@types/babel__generator": "^7.27.0",
+    "@types/babel__traverse": "^7.28.0",
+    "@types/node": "^26.6.2",
+    "@types/picomatch": "^4.0.3",
+    "typescript": "^7.0.2"
+  }
+}
