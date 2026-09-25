@@ -14,7 +14,7 @@
 // Common options: --dir <functions dir> (default .), --state <file> (default
 // .fdc-state.json next to firebase.json).
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { parseDeployLog, runFirebase } from './deploy.ts';
@@ -57,6 +57,12 @@ function repo() {
   return repoRoot ??= git(['rev-parse', '--show-toplevel']).trim();
 }
 
+/** The functions directory relative to the repo root, POSIX-style ('' for the root). */
+function dirInRepo() {
+  // git reports the top level with symlinks resolved (e.g. /tmp -> /private/tmp on macOS).
+  return path.relative(repo(), realpathSync(dir)).split(path.sep).join('/');
+}
+
 function isInside(file: string, parent: string) {
   const rel = path.relative(parent, file);
   return !rel.startsWith('..') && !path.isAbsolute(rel);
@@ -77,7 +83,7 @@ function functionsConfig() {
 function analyze(rev: string | undefined): Analysis {
   const src: Source = rev === undefined
     ? new FsSource(dir)
-    : new GitSource(repo(), rev, path.relative(repo(), dir).split(path.sep).join('/'));
+    : new GitSource(repo(), rev, dirInRepo());
   const a = analyzeProject(src, { ignore });
   for (const w of a.warnings) console.error(`warning: ${w}`);
   return a;
@@ -222,7 +228,7 @@ async function main(): Promise<number> {
       return 0;
     }
     case 'replay': {
-      const relDir = path.relative(repo(), dir).split(path.sep).join('/');
+      const relDir = dirInRepo();
       const log = git(['log', '--format=%H %s', '-n', opts.n, '--', relDir || '.'], repo()).trim().split('\n').filter(Boolean);
       const cache = new Map<string, Analysis>();
       const at = (rev: string) => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -127,6 +127,23 @@ test('state recorded from a git revision matches an identical working tree', () 
   assert.equal(p.fdc(['record', '--all', '--rev', 'HEAD']).code, 0);
   const r = p.fdc(['changed']);
   assert.equal(r.code, 0, r.out);
+});
+
+test('--rev works when --dir reaches the repo through a symlink', () => {
+  const p = project();
+  const git = (...args: string[]) => spawnSync('git', args, { cwd: p.root, encoding: 'utf8' });
+  git('init', '-q');
+  git('add', '-A');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'init');
+  const link = path.join(mkdtempSync(path.join(tmpdir(), 'fdc-link-')), 'project');
+  symlinkSync(p.root, link);
+  const state = path.join(p.root, 'linked-state.json');
+  const run = (args: string[]) => spawnSync(process.execPath, [cli, '--dir', path.join(link, 'functions'), '--state', state, ...args], { encoding: 'utf8' });
+  const record = run(['record', '--all', '--rev', 'HEAD']);
+  assert.equal(record.status, 0, record.stderr);
+  const r = run(['changed', '--rev', 'HEAD', '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), { changed: [], added: [], removed: [] });
 });
 
 test('changed --rev --json reports a commit, not the working tree', () => {
