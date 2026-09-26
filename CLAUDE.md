@@ -15,6 +15,7 @@ deploys only those. See README.md for usage and design.
 
 ```sh
 npm test            # node --test "test/*.test.ts"
+npm run test:firestore  # Firestore state tests in the emulator
 npm run typecheck   # tsc, type checking only
 node src/cli.ts <command> --dir <functions dir>
 ```
@@ -30,7 +31,8 @@ node src/cli.ts <command> --dir <functions dir>
 - `src/source.ts`: a snapshot of the functions directory, either the working
   tree or a git revision. Both must produce identical blob ids for identical
   files.
-- `src/state.ts`: the local state file of deployed fingerprints.
+- `src/state.ts`: the record of deployed fingerprints, in a local file or a
+  Firestore collection (one document per function).
 - `src/deploy.ts`: runs `firebase deploy` and parses per-function results.
 - `src/cli.ts`: commands.
 - `test/fixtures/fake-firebase.js`: a stand-in for the firebase CLI in the

@@ -9,13 +9,15 @@
   },
   "scripts": {
     "typecheck": "tsc",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --test \"test/*.test.ts\"",
+    "test:firestore": "firebase emulators:exec --only firestore --project demo-fdc \"node --test test/firestore.test.ts\""
   },
   "dependencies": {
     "@babel/generator": "^8.0.6",
     "@babel/parser": "^8.0.6",
     "@babel/traverse": "^8.0.6",
     "@babel/types": "^8.0.6",
+    "@google-cloud/firestore": "^9.2.0",
     "picomatch": "^4.0.7"
   },
   "devDependencies": {

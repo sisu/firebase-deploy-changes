@@ -57,7 +57,8 @@ fdc record myFunction otherFunction --dir functions
 | --- | --- |
 | `deploy [--all] [--dry-run] [-- <firebase args>]` | Deploy changed functions and record the ones that succeed |
 | `changed [--rev R] [--json]` | List changed, new and removed functions |
-| `record [<names>...] [--all] [--rev R]` | Mark functions as deployed without deploying |
+| `record [<names>...] [--all] [--replace] [--rev R]` | Mark functions as deployed without deploying; `--replace` drops every other record |
+| `state` | Print the recorded state as JSON |
 | `fingerprint [--rev R]` | Print every function's fingerprint as JSON |
 | `diff <base-rev> [<head-rev>] [--explain]` | Functions whose code differs between two revisions; `--explain` shows why |
 | `replay [-n N]` | Replay the last N commits and report how many functions each one would deploy |
@@ -65,15 +66,24 @@ fdc record myFunction otherFunction --dir functions
 Common options:
 
 - `--dir <path>`: the functions source directory (default `.`).
-- `--state <file>`: the state file (default: `.fdc-state.json` next to
-  `firebase.json`, or `.fdc-state.<codebase>.json` for a non-default
-  codebase).
+- `--state <file>` or `--state firestore:<collection>`: where the state is
+  kept (default: `.fdc-state.json` next to `firebase.json`, or
+  `.fdc-state.<codebase>.json` for a non-default codebase).
+- `--project <id>`: the project holding Firestore state (default: the default
+  project in `.firebaserc`).
 
-### The state file
+### The state
 
 The state file records, for each function, the fingerprint and git commit it
 was last deployed from. It is local, so add it to `.gitignore`. If you deploy
 from a temporary worktree, point `--state` at a location that outlives it.
+
+To share the state between machines, keep it in Firestore instead:
+`--state firestore:_fdc_state`. Each function is one document, so two
+machines deploying at once only write their own functions' records. fdc uses
+Application Default Credentials (`gcloud auth application-default login`),
+which bypass security rules, so rules can deny all client access to the
+collection. Use one collection per codebase.
 
 Functions removed from the code stay in the state file and are listed by
 `fdc changed`. `firebase deploy --only` never deletes functions, so delete them
@@ -151,5 +161,6 @@ Where static analysis can't be precise, `fdc` errs toward redeploying:
 
 ```sh
 npm test            # node --test
+npm run test:firestore  # Firestore state tests, in the emulator (needs firebase-tools and Java)
 npm run typecheck   # tsc (type checking only; Node runs the .ts files directly)
 ```

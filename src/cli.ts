@@ -4,15 +4,18 @@
 //   fdc deploy [--all] [--dry-run] [-- <firebase args>]
 //                                        deploy functions whose code changed since recorded, record the ones that succeed
 //   fdc changed [--rev R] [--json]       list functions whose code changed since recorded (exit 1 if any)
-//   fdc record [<names>...] [--all] [--rev R]
-//                                        mark functions as deployed; `record --all --rev <sha>` bootstraps the state
+//   fdc record [<names>...] [--all] [--replace] [--rev R]
+//                                        mark functions as deployed; `record --all --rev <sha>` bootstraps the state;
+//                                        --replace drops every other record
+//   fdc state                            print the recorded state as JSON
 //   fdc fingerprint [--rev R]            print {function: fingerprint} as JSON
 //   fdc diff <base-rev> [<head-rev>] [--explain]
 //                                        functions whose code differs between revisions (head defaults to the working tree)
 //   fdc replay [-n N]                    evaluate over the last N commits touching the functions directory
 //
-// Common options: --dir <functions dir> (default .), --state <file> (default
-// .fdc-state.json next to firebase.json).
+// Common options: --dir <functions dir> (default .), --state <file> or
+// firestore:<collection> (default .fdc-state.json next to firebase.json),
+// --project <id> for Firestore state (default: .firebaserc's default project).
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
@@ -20,7 +23,7 @@ import { parseArgs } from 'node:util';
 import { parseDeployLog, runFirebase } from './deploy.ts';
 import { analyzeProject, type Analysis } from './project.ts';
 import { FsSource, GitSource, type Source } from './source.ts';
-import { loadState, plan, saveState, type State } from './state.ts';
+import { openStore, plan, type FunctionRecord } from './state.ts';
 
 const argv = process.argv.slice(2);
 const dashDash = argv.indexOf('--');
@@ -37,16 +40,29 @@ const { values: opts, positionals } = parseArgs({
     firebase: { type: 'string', default: 'firebase' },
     explain: { type: 'boolean', default: false },
     json: { type: 'boolean', default: false },
+    replace: { type: 'boolean', default: false },
+    project: { type: 'string' },
     n: { type: 'string', short: 'n', default: '100' },
   },
 });
 
 const dir = path.resolve(opts.dir);
 const config = functionsConfig();
-const statePath = path.resolve(opts.state ?? path.join(
-  config.root, config.codebase === 'default' ? '.fdc-state.json' : `.fdc-state.${config.codebase}.json`));
+const stateSpec = opts.state ?? path.join(
+  config.root, config.codebase === 'default' ? '.fdc-state.json' : `.fdc-state.${config.codebase}.json`);
+const store = openStore(stateSpec, projectId);
 // A state file inside the functions directory must not count as a deployed asset.
-const ignore = [...config.ignore, ...(isInside(statePath, dir) ? [path.relative(dir, statePath)] : [])];
+const ignore = [...config.ignore,
+  ...(!stateSpec.startsWith('firestore:') && isInside(path.resolve(stateSpec), dir) ? [path.relative(dir, path.resolve(stateSpec))] : [])];
+
+/** The Firebase project holding Firestore state: --project, else .firebaserc's default. */
+function projectId(): string {
+  if (opts.project) return opts.project;
+  const rc = path.join(config.root, '.firebaserc');
+  const id = existsSync(rc) ? JSON.parse(readFileSync(rc, 'utf8')).projects?.default : undefined;
+  if (!id) throw new Error('Firestore state needs a project: pass --project or set a default in .firebaserc');
+  return id;
+}
 
 function git(args: string[], cwd = dir) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -100,9 +116,11 @@ function currentRev(rev?: string): string | null {
   }
 }
 
-function record(state: State, a: Analysis, names: string[], rev: string | null) {
+function records(a: Analysis, names: string[], rev: string | null) {
   const recordedAt = new Date().toISOString();
-  for (const name of names) state.functions[name] = { fingerprint: a.fingerprints.get(name)!, rev, recordedAt };
+  const out: Record<string, FunctionRecord> = {};
+  for (const name of names) out[name] = { fingerprint: a.fingerprints.get(name)!, rev, recordedAt };
+  return out;
 }
 
 const target = (name: string) => `functions:${config.codebase === 'default' ? '' : `${config.codebase}:`}${name}`;
@@ -153,8 +171,7 @@ async function main(): Promise<number> {
     case 'deploy': {
       const rev = currentRev();
       const a = analyze(undefined);
-      const state = loadState(statePath);
-      const p = plan(a.fingerprints, state);
+      const p = plan(a.fingerprints, await store.load());
       printPlan(p, a.fingerprints.size);
       const targets = opts.all ? [...a.fingerprints.keys()] : [...p.changed, ...p.added];
       if (!targets.length) {
@@ -170,9 +187,8 @@ async function main(): Promise<number> {
       const { code, output } = await runFirebase(opts.firebase, firebaseArgs, config.root);
       const log = parseDeployLog(output, config.codebase);
       const deployed = targets.filter((n) => log.succeeded.has(n));
-      record(state, a, deployed, rev);
-      saveState(statePath, state);
-      console.log(`\nRecorded ${deployed.length} of ${targets.length} deployed function(s) in ${statePath}.`);
+      await store.save(records(a, deployed, rev), false);
+      console.log(`\nRecorded ${deployed.length} of ${targets.length} deployed function(s) in ${store.location}.`);
       const failed = targets.filter((n) => log.failed.has(n));
       const unconfirmed = targets.filter((n) => !log.succeeded.has(n) && !log.failed.has(n));
       if (failed.length) console.error(`Failed (will be deployed again next time): ${failed.join(', ')}`);
@@ -190,7 +206,7 @@ async function main(): Promise<number> {
     }
     case 'changed': {
       const a = analyze(opts.rev);
-      const p = plan(a.fingerprints, loadState(statePath));
+      const p = plan(a.fingerprints, await store.load());
       const targets = [...p.changed, ...p.added];
       if (opts.json) console.log(JSON.stringify(p));
       else printPlan(p, a.fingerprints.size);
@@ -200,13 +216,15 @@ async function main(): Promise<number> {
     case 'record': {
       const a = analyze(opts.rev);
       const names = opts.all ? [...a.fingerprints.keys()] : args;
-      if (!names.length) throw new Error('usage: fdc record <names>... | --all [--rev R]');
+      if (!names.length) throw new Error('usage: fdc record <names>... | --all [--replace] [--rev R]');
       const unknown = names.filter((n) => !a.fingerprints.has(n));
       if (unknown.length) throw new Error(`not exported functions: ${unknown.join(', ')}`);
-      const state = loadState(statePath);
-      record(state, a, names, currentRev(opts.rev));
-      saveState(statePath, state);
-      console.log(`Recorded ${names.length} function(s) in ${statePath}.`);
+      await store.save(records(a, names, currentRev(opts.rev)), opts.replace);
+      console.log(`Recorded ${names.length} function(s) in ${store.location}.`);
+      return 0;
+    }
+    case 'state': {
+      console.log(JSON.stringify(await store.load()));
       return 0;
     }
     case 'fingerprint': {
@@ -263,7 +281,7 @@ async function main(): Promise<number> {
       return 0;
     }
     default:
-      console.error('usage: fdc deploy|changed|record|fingerprint|diff|replay [--dir D] [--state F] ...');
+      console.error('usage: fdc deploy|changed|record|state|fingerprint|diff|replay [--dir D] [--state F] ...');
       return 2;
   }
 }

@@ -161,3 +161,11 @@ test('changed --rev --json reports a commit, not the working tree', () => {
   assert.equal(r.code, 1, r.out);
   assert.deepEqual(JSON.parse(r.out), { changed: ['b'], added: ['d'], removed: ['c'] });
 });
+
+test('state prints the record; record --replace keeps only the named functions', () => {
+  const p = project();
+  p.fdc(['record', '--all']);
+  assert.deepEqual(Object.keys(JSON.parse(p.fdc(['state']).out).functions), ['a', 'b', 'c']);
+  assert.equal(p.fdc(['record', 'a', '--replace']).code, 0);
+  assert.deepEqual(p.recorded(), ['a']);
+});
