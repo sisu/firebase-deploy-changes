@@ -24,7 +24,7 @@
     "node": "^22.18.0 || >=24.11.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
     "typecheck": "tsc",
     "test": "node --test \"test/*.test.ts\"",
