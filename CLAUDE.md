@@ -17,6 +17,7 @@ deploys only those. See README.md for usage and design.
 npm test            # node --test "test/*.test.ts"
 npm run test:firestore  # Firestore state tests in the emulator
 npm run typecheck   # tsc, type checking only
+npm run build       # compile src/ to dist/ for publishing
 node src/cli.ts <command> --dir <functions dir>
 ```
 

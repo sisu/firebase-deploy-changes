@@ -1,13 +1,31 @@
 {
   "name": "firebase-deploy-changes",
   "version": "0.1.0",
-  "private": true,
+  "description": "Deploy only the Firebase Cloud Functions whose code actually changed",
+  "keywords": [
+    "firebase",
+    "cloud-functions",
+    "deploy",
+    "static-analysis"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sisu/firebase-deploy-changes.git"
+  },
   "license": "MIT",
   "type": "module",
   "bin": {
-    "fdc": "src/cli.ts"
+    "fdc": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc",
     "test": "node --test \"test/*.test.ts\"",
     "test:firestore": "firebase emulators:exec --only firestore --project demo-fdc \"node --test test/firestore.test.ts\""

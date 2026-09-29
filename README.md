@@ -16,19 +16,18 @@ code changed since they were last deployed.
 
 ## Requirements
 
-- Node.js 23.6 or newer. The TypeScript sources run directly, with no build
-  step.
+- Node.js 22.18 or newer.
 - The Firebase CLI (`firebase`) on your `PATH`.
 - Git, for the commands that read revisions (`record --rev`, `diff`,
   `replay`).
 
 ## Usage
 
-Run from a clone of this repository, from the Firebase project directory:
+Install it, then run from the Firebase project directory:
 
 ```sh
-npm install                       # in this repository
-alias fdc="node /path/to/firebase-deploy-changes/src/cli.ts"
+npm install --save-dev firebase-deploy-changes   # then run it as `npx fdc`,
+npm install --global firebase-deploy-changes     # or as `fdc`
 ```
 
 ```sh
@@ -163,4 +162,5 @@ Where static analysis can't be precise, `fdc` errs toward redeploying:
 npm test            # node --test
 npm run test:firestore  # Firestore state tests, in the emulator (needs firebase-tools and Java)
 npm run typecheck   # tsc (type checking only; Node runs the .ts files directly)
+npm run build       # compile to dist/, which is what gets published
 ```
